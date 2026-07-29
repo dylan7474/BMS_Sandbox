@@ -40,5 +40,5 @@ The included environment bootstrap script handles absolute directory sandboxing,
 
    
 ```bash
-   git clone [https://github.com/dylan7474/BMS_Sandbox.git](https://github.com/dylan7474/BMS_Sandbox.git)
+   git clone https://github.com/dylan7474/BMS_Sandbox.git
    cd BMS_Sandbox
