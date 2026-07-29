@@ -2,13 +2,14 @@
 set -e
 
 echo "=== 1. Pausing Existing Core Network Services ==="
-docker compose down --volumes --remove-orphans 2>/dev/null || true
+docker compose down --remove-orphans 2>/dev/null || true
 
-# Establish storage paths for ThingsBoard engine
+# Maintain data storage paths
 mkdir -p modbus-sim bacnet-sim nodered-data tb-data tb-log
-chmod -R 777 tb-data tb-log nodered-data
 
-# Network resilience helper function
+# Only loosen root directory permissions safely without tripping on container-owned files
+chmod 777 modbus-sim bacnet-sim nodered-data tb-data tb-log 2>/dev/null || true
+
 retry_network_cmd() {
     local n=1
     local max=5
@@ -29,7 +30,7 @@ retry_network_cmd() {
 # -------------------------------------------------------------------
 # 2. GENERATE EXPANDED 4-CONTAINER INFRASTRUCTURE BLUEPRINT
 # -------------------------------------------------------------------
-echo "=== 2. Upgrading Container Topology Map ==="
+echo "=== 2. Upgrading Container Topology Map (Aligned to Port 9090) ==="
 cat << 'EOF' > docker-compose.yml
 services:
   modbus-sim:
@@ -59,7 +60,7 @@ services:
     image: thingsboard/tb-postgres
     container_name: bms-thingsboard
     ports:
-      - "9090:8080"
+      - "9090:9090"
     environment:
       - TB_QUEUE_TYPE=in-memory
     volumes:
@@ -71,7 +72,7 @@ EOF
 # -------------------------------------------------------------------
 # 3. GENERATE FULLY INTEGRATED ANALYTICS FLOW
 # -------------------------------------------------------------------
-echo "=== 3. Injecting JavaScript PUE Engine & API Pipelines ==="
+echo "=== 3. Injecting JavaScript PUE Engine & Aligned API Pipelines ==="
 cat << 'EOF' > nodered-data/flows.json
 [
     {
@@ -274,7 +275,7 @@ cat << 'EOF' > nodered-data/flows.json
         "method": "POST",
         "ret": "txt",
         "paytoqs": "ignore",
-        "url": "http://bms-thingsboard:8080/api/v1/sandbox_dcim_token/telemetry",
+        "url": "http://bms-thingsboard:9090/api/v1/sandbox_dcim_token/telemetry",
         "tls": "",
         "persist": false,
         "proxy": "",
@@ -306,14 +307,10 @@ EOF
 # 4. RUNTIME INITIALIZATION
 # -------------------------------------------------------------------
 echo "=== 4. Launching Expanded Core Matrix ==="
-retry_network_cmd docker compose build nodered
 retry_network_cmd docker compose up -d
 
 echo "=========================================================="
-echo "SUCCESS: Extended Industrial Enterprise Stack Online!"
+echo "SUCCESS: Extended Industrial Enterprise Stack Aligned!"
 echo "Node-RED Supervisor Dashboard: http://localhost:1880"
 echo "ThingsBoard BMS Head-End Server: http://localhost:9090"
-echo "=========================================================="
-echo "NOTE: ThingsBoard populates a SQL database structure on first boot."
-echo "Please wait 60-90 seconds before logging into the portal UI."
 echo "=========================================================="
