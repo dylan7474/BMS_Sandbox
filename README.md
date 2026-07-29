@@ -41,3 +41,5 @@ The included environment bootstrap script handles absolute directory sandboxing,
 ```bash
    git clone https://github.com/dylan7474/BMS_Sandbox.git
    cd BMS_Sandbox
+
+Once the extend_bms_sandbox.sh script has been completed, you can login to http://localhost:9090 and log in with the tenant credentials (tenant@thingsboard.org / tenant).
