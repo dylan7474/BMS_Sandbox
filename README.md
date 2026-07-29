@@ -1,4 +1,3 @@
-cat << 'EOF' > README.md
 # Containerized Data Center BMS & DCIM Sandbox
 
 A fully automated, zero-touch containerized Data Center Infrastructure Management (DCIM) and Building Management System (BMS) laboratory sandbox. This repository provisions a localized testing environment simulating a mission-critical data center whitespace—complete with a Modbus TCP power train (PDU/UPS) and a BACnet/IP cooling subsystem (CRAC)—orchestrated and analyzed natively inside an immutable **Node-RED** supervisor.
