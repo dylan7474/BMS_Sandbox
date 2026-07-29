@@ -33,4 +33,4 @@ The included environment bootstrap script handles absolute directory sandboxing,
 1. Clone this repository to your local system:
    ```bash
    git clone https://github.com/dylan7474/BMS_Sandbox.git
-   cd YOUR_REPO_NAME
+   cd BMS_Sandbox
