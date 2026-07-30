@@ -4,10 +4,10 @@ set -e
 echo "=== 1. Pausing Existing Core Network Services ==="
 docker compose down --remove-orphans 2>/dev/null || true
 
-# Maintain data storage paths
+# Establish storage paths safely
 mkdir -p modbus-sim bacnet-sim nodered-data tb-data tb-log
 
-# Only loosen root directory permissions safely without tripping on container-owned files
+# Loosen base directory permissions safely without breaking container-owned inner DB hierarchies
 chmod 777 modbus-sim bacnet-sim nodered-data tb-data tb-log 2>/dev/null || true
 
 retry_network_cmd() {
@@ -29,8 +29,9 @@ retry_network_cmd() {
 
 # -------------------------------------------------------------------
 # 2. GENERATE EXPANDED 4-CONTAINER INFRASTRUCTURE BLUEPRINT
+#    Includes permanent 50MB log capping rotations & safe host ports
 # -------------------------------------------------------------------
-echo "=== 2. Upgrading Container Topology Map (Aligned to Port 9090) ==="
+echo "=== 2. Upgrading Container Topology Map (With Permanent Log Rotation) ==="
 cat << 'EOF' > docker-compose.yml
 services:
   modbus-sim:
@@ -39,6 +40,11 @@ services:
     ports:
       - "5020:5020"
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   bacnet-sim:
     build: ./bacnet-sim
@@ -46,6 +52,11 @@ services:
     ports:
       - "47808:47808/udp"
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   nodered:
     build: ./nodered-data
@@ -55,18 +66,28 @@ services:
     volumes:
       - ./nodered-data:/data
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
 
   thingsboard:
     image: thingsboard/tb-postgres
     container_name: bms-thingsboard
     ports:
-      - "9090:9090"
+      - "9595:9090"
     environment:
       - TB_QUEUE_TYPE=in-memory
     volumes:
       - ./tb-data:/data
       - ./tb-log:/var/log/thingsboard
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
 EOF
 
 # -------------------------------------------------------------------
@@ -312,5 +333,5 @@ retry_network_cmd docker compose up -d
 echo "=========================================================="
 echo "SUCCESS: Extended Industrial Enterprise Stack Aligned!"
 echo "Node-RED Supervisor Dashboard: http://localhost:1880"
-echo "ThingsBoard BMS Head-End Server: http://localhost:9090"
+echo "ThingsBoard BMS Head-End Server: http://localhost:9595"
 echo "=========================================================="
