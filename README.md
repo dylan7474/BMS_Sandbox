@@ -53,17 +53,17 @@ proxy, mobile framework, or host-specific networking tool:
 │                                                                        │
 │   ┌────────────────────────────────────────────────────────────────┐   │
 │   │                 ISOLATED DOCKER VIRTUAL BRIDGE                 │   │
-│   │       Containers communicate on a private sandbox subnet      │   │
+│   │       Containers communicate on a private sandbox subnet       │   │
 │   └─┬───────────────────────────┬──────────────────────────────┬───┘   │
 │     │                           │                              │       │
 │     ▼                           ▼                              ▼       │
 │ ┌────────────────┐        ┌────────────────┐       ┌─────────────────┐ │
-│ │ bms-modbus-sim │        │ bms-bacnet-sim│       │ bms-thingsboard │ │
+│ │ bms-modbus-sim │        │ bms-bacnet-sim │       │ bms-thingsboard │ │
 │ │   Simulator    │        │   Simulator    │       │  Head-End + DB  │ │
 │ └───────┬────────┘        └────────┬───────┘       └────────▲────────┘ │
 │         │                          │                        │          │
-│         │ Raw Modbus TCP           │ Raw BACnet/IP         │          │
-│         │ (power data)             │ (HVAC temperature)    │          │
+│         │ Raw Modbus TCP           │ Raw BACnet/IP          │          │
+│         │ (power data)             │ (HVAC temperature)     │          │
 │         └──────────────┐    ┌──────┘                        │          │
 │                        ▼    ▼                               │          │
 │                  ┌────────────────┐                         │          │
