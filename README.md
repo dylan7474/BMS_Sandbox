@@ -170,6 +170,57 @@ The default ThingsBoard tenant credentials are:
 Change default credentials before exposing the service beyond a trusted sandbox
 network.
 
+## Create a Simulated Data Flow in ThingsBoard
+
+After deploying the stack, complete the following one-time setup to connect a
+ThingsBoard device to the telemetry that Node-RED is already publishing.
+
+### Phase 1: Provision the Device
+
+1. Open the ThingsBoard central console at <http://localhost:9090>. When
+   accessing the sandbox remotely, replace `localhost` with the server's
+   network IP address.
+2. Log in with your ThingsBoard credentials. The sandbox defaults are
+   `tenant@thingsboard.org` for the username and `tenant` for the password.
+3. In the left navigation sidebar, select **Entities**, and then select
+   **Devices**.
+4. Click the **+** (**Add Device**) icon in the top-right corner of the table,
+   and select **Add new device**.
+5. In the **Name** field, enter a clear device name such as `Data Center Core`,
+   and click **Add**.
+6. A connectivity wizard displays sample test commands. These commands are not
+   needed for this data flow; click **Close** or the **X** in the top-right
+   corner.
+
+### Phase 2: Match the Device to the Automation Flow
+
+Node-RED is preconfigured to publish telemetry with a standardized access
+token. Assign that same token to the new ThingsBoard device:
+
+1. In the **Devices** table, click the row for the device you just created. A
+   device details panel opens on the right.
+2. At the top of the details panel, click **Manage credentials**.
+3. Clear the randomly generated value in the **Access token** field and enter
+   the repository token exactly as shown:
+
+   ```text
+   sandbox_dcim_token
+   ```
+
+4. Click **Save**.
+
+### Phase 3: Verify Live Telemetry
+
+1. In the device details panel, select the **Latest telemetry** tab.
+2. Allow 5 to 10 seconds for the first readings to arrive. The table should
+   populate automatically and continue refreshing with live values.
+3. Confirm that telemetry keys such as `Calculated_PUE`, `IT_Load_kW`,
+   `Cooling_Load_kW`, and `Room_Temperature_C` appear and change as the
+   simulator loops run.
+
+The simulated equipment, Node-RED supervisor, and ThingsBoard device now form a
+verified, closed-loop telemetry pipeline.
+
 ## Operations
 
 Start or recreate the complete stack:
