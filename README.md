@@ -47,7 +47,7 @@ proxy, mobile framework, or host-specific networking tool:
 │   ┌──────────────────────────────────────────────────────────────┐     │
 │   │               STANDARD EXPOSED HOST NETWORK PORTS            │     │
 │   ├──────────────────────────────┬───────────────────────────────┤     │
-│   │ Port 9090: ThingsBoard UI    │ Port 1880: Node-RED Gateway   │     │
+│   │ Port 9595: ThingsBoard UI    │ Port 1880: Node-RED Gateway   │     │
 │   │ Port 5020: Modbus TCP        │ Port 47808: BACnet/IP (UDP)   │     │
 │   └──────────────────────────────┴───────────────────────────────┘     │
 │                                                                        │
@@ -84,7 +84,7 @@ proxy, mobile framework, or host-specific networking tool:
 
 | Service | Container | Role | Host endpoint |
 | --- | --- | --- | --- |
-| ThingsBoard | `bms-thingsboard` | Central BMS portal, telemetry visualization, and PostgreSQL-backed storage | `http://localhost:9090` |
+| ThingsBoard | `bms-thingsboard` | Central BMS portal, telemetry visualization, and PostgreSQL-backed storage | `http://localhost:9595` |
 | Node-RED | `bms-supervisor` | Equipment polling, supervisory logic, PUE calculation, and telemetry forwarding | `http://localhost:1880` |
 | Modbus simulator | `bms-modbus-sim` | Industrial electricity meter and power data | Modbus TCP port `5020` |
 | BACnet simulator | `bms-bacnet-sim` | HVAC and temperature data | BACnet/IP UDP port `47808` |
@@ -112,7 +112,7 @@ PUE = Total Facility Power / IT Equipment Power
 
 ## Core Architecture Rules
 
-- **Standard port alignment:** ThingsBoard is exposed on host port `9090`, while
+- **Standard port alignment:** ThingsBoard is exposed on host port `9595`, while
   Node-RED uses `1880`, Modbus TCP uses `5020`, and BACnet/IP uses UDP `47808`.
 - **Isolated internal communications:** Node-RED posts telemetry to
   `http://bms-thingsboard:9090` using Docker's private DNS and bridge network. It
@@ -126,7 +126,32 @@ PUE = Total Facility Power / IT Equipment Power
 - Docker Engine 20.10 or later
 - Docker Compose 2.0 or later (`docker compose`)
 - A Linux host capable of running Bash scripts
+- Internet access for pulling container images and Python/Node.js dependencies
+- At least 4 GB of RAM available to Docker (ThingsBoard is the largest service)
 - Host firewall access to the ports required by your deployment
+
+Confirm that Docker and Compose are available before continuing:
+
+```bash
+docker --version
+docker compose version
+```
+
+## Repository Layout
+
+This repository intentionally stores the deployment generators rather than the
+generated application tree:
+
+| File | Purpose |
+| --- | --- |
+| `init_bms_sandbox.sh` | Resets the local stack, generates the Modbus and BACnet simulators plus the Node-RED project, builds their images, and starts the three core services. |
+| `extend_bms_sandbox.sh` | Rewrites the generated Compose file and Node-RED flow to add ThingsBoard, persistent data directories, telemetry forwarding, and container log rotation. |
+| `README.md` | Deployment, configuration, verification, and operating guidance. |
+
+Running the scripts creates `docker-compose.yml`, `modbus-sim/`, `bacnet-sim/`,
+`nodered-data/`, `tb-data/`, and `tb-log/` in the repository directory. Treat
+these as generated runtime artifacts; rerunning a generator may overwrite local
+changes made inside them.
 
 ## Deployment
 
@@ -149,17 +174,35 @@ Then extend it with the ThingsBoard head-end and log-rotation guardrails:
 ./extend_bms_sandbox.sh
 ```
 
-Both scripts are deployment helpers and run Docker Compose on your behalf. Note
-that the initialization script removes existing Compose volumes as part of its
-clean reset. After deployment, verify the services:
+Both scripts are deployment helpers and run Docker Compose on your behalf. Run
+them in the order shown: the extension script expects the files produced by the
+initialization script.
+
+> **Data-loss warning:** `init_bms_sandbox.sh` begins with
+> `docker compose down --volumes --remove-orphans`. Rerunning it removes the
+> current project's Docker-managed volumes and regenerates its configuration.
+> Back up any data you want to keep first.
+
+ThingsBoard can take several minutes to finish its first initialization. Verify
+container state and follow its startup log:
 
 ```bash
 docker compose ps
+docker compose logs --follow thingsboard
+```
+
+Press <kbd>Ctrl</kbd>+<kbd>C</kbd> to stop following logs; the containers remain
+running. A healthy deployment lists all four containers as running. You can also
+check the local HTTP endpoints:
+
+```bash
+curl --fail --head http://localhost:1880
+curl --fail --head http://localhost:9595
 ```
 
 Open the web interfaces:
 
-- ThingsBoard: <http://localhost:9090>
+- ThingsBoard: <http://localhost:9595>
 - Node-RED: <http://localhost:1880>
 
 The default ThingsBoard tenant credentials are:
@@ -177,7 +220,7 @@ ThingsBoard device to the telemetry that Node-RED is already publishing.
 
 ### Phase 1: Provision the Device
 
-1. Open the ThingsBoard central console at <http://localhost:9090>. When
+1. Open the ThingsBoard central console at <http://localhost:9595>. When
    accessing the sandbox remotely, replace `localhost` with the server's
    network IP address.
 2. Log in with your ThingsBoard credentials. The sandbox defaults are
@@ -246,3 +289,66 @@ Remove the stack and its Docker-managed volumes when a full reset is required:
 ```bash
 docker compose down --volumes --remove-orphans
 ```
+
+## Configuration Notes
+
+- Host-to-container port mappings are generated by `extend_bms_sandbox.sh`. If a
+  host port is already occupied, change only the host side of the mapping (the
+  number before `:`) in the generated `docker-compose.yml` and use that new port
+  in your browser.
+- Node-RED sends telemetry to ThingsBoard over the private Compose network using
+  container port `9090`. This is intentionally different from the ThingsBoard
+  host port, `9595`.
+- Simulator and Node-RED source files are bind-mounted or built from generated
+  directories. After changing generated simulator code, run
+  `docker compose up -d --build`; after changing only `flows.json`, restart
+  Node-RED with `docker compose restart nodered`.
+
+## Troubleshooting
+
+### A container exits or never becomes ready
+
+Inspect the service state and recent logs:
+
+```bash
+docker compose ps --all
+docker compose logs --tail=200 <service-name>
+```
+
+Valid service names are `modbus-sim`, `bacnet-sim`, `nodered`, and
+`thingsboard`. On a resource-constrained host, confirm that Docker has enough
+memory and disk space before recreating the service.
+
+### A host port is already allocated
+
+Identify the process using the relevant port, stop it or adjust the generated
+Compose mapping, and recreate the stack:
+
+```bash
+sudo ss -lntup | grep -E ':(1880|5020|9595|47808)\b'
+docker compose up -d
+```
+
+### ThingsBoard has no telemetry
+
+1. Confirm that the device token is exactly `sandbox_dcim_token`.
+2. Confirm that the simulator, Node-RED, and ThingsBoard containers are running.
+3. Inspect the Node-RED debug sidebar and the two relevant logs:
+
+   ```bash
+   docker compose logs --tail=200 nodered thingsboard
+   ```
+
+The flow posts only after it has received simulator readings, so allow at least
+one polling interval after all services become available.
+
+## Security Considerations
+
+This project is a learning sandbox, not a production-ready BMS deployment. The
+generated stack exposes unauthenticated industrial-protocol simulators and a
+Node-RED editor, uses known demo credentials and a fixed telemetry token, grants
+broad permissions to generated data directories, and serves web traffic without
+TLS. Keep it on a trusted, isolated network. Before any wider exposure, restrict
+firewall rules, add authentication and TLS through a reverse proxy, replace all
+default credentials and tokens, review directory permissions, and pin container
+images and dependencies to tested versions.
